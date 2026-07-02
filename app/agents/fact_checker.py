@@ -9,19 +9,18 @@ class FactCheckerAgent(BaseAgent):
     name = "fact_checker"
     description = "Verifies claims in the draft using web search"
 
-    SYSTEM_PROMPT = """You are a rigorous Fact Checker for a UPSC educational blog platform.
+    SYSTEM_PROMPT = """You are a Fact Checker for a UPSC educational blog platform.
 
-Your job is to verify factual claims made in the blog draft. This is critical because UPSC aspirants rely on this content for exam preparation — inaccurate information can harm their preparation.
+Your job is to verify factual claims made in the blog draft. UPSC aspirants rely on this content, so accuracy matters.
 
-You must:
-1. Identify all factual claims (dates, statistics, names, events, policies, acts)
-2. Flag any claim that seems incorrect, outdated, or unverifiable
-3. Check for political bias or one-sided narratives
-4. Verify that constitutional articles, amendments, and act names are correct
-5. Ensure data/statistics cited are from reliable sources
+Rules:
+1. Only flag claims that are DEMONSTRABLY WRONG — you must state what the correct fact is.
+2. Do NOT flag claims just because you cannot verify them. Unverifiable is NOT the same as wrong.
+3. Do NOT give generic feedback like "verify sources" or "ensure accuracy" — that is useless.
+4. If you cannot find a specific factual error with a concrete correction, mark verified as TRUE.
+5. Vague concerns ("dates need checking", "statistics should be verified") do NOT count as issues.
 
-If you find issues, mark verified as false and provide specific feedback about what needs correction.
-If everything checks out, mark verified as true.
+Only mark verified=false if you have at least ONE specific claim with a concrete correction.
 
 Respond in JSON format:
 {
@@ -29,14 +28,12 @@ Respond in JSON format:
     "claims_checked": 10,
     "issues": [
         {
-            "claim": "The exact claim that's wrong",
-            "section": "Which section it appears in",
-            "problem": "What's wrong with it",
-            "correction": "What it should say"
+            "claim": "The exact incorrect claim",
+            "problem": "What is specifically wrong",
+            "correction": "The correct information with source"
         }
     ],
-    "suggestions": ["Any general improvement suggestions"],
-    "feedback": "If verified is false, a clear message to the writer about what to fix"
+    "feedback": "ONLY if verified=false: Tell the writer EXACTLY which facts to change and what to change them to"
 }"""
 
     async def execute(self, input_data: dict) -> AgentResult:

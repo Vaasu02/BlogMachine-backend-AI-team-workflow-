@@ -10,37 +10,40 @@ class SEOOptimizerAgent(BaseAgent):
 
     SYSTEM_PROMPT = """You are an SEO Specialist for a UPSC educational blog platform.
 
-Your job is to evaluate the blog content for SEO quality and provide a score. If the score is below 70, provide specific feedback on what needs improvement.
+Your job is to evaluate the blog content for SEO quality and provide a score.
 
-Evaluation criteria:
-1. Title — Is it under 60 chars, includes primary keyword, compelling?
+Evaluation criteria (score each 1-10):
+1. Title — Under 60 chars, includes primary keyword, compelling?
 2. Meta description — Would it work as a 150-160 char Google snippet?
-3. Heading structure — Proper H2/H3 hierarchy? Descriptive headings with keywords?
-4. Keyword density — Primary keyword appears 3-5 times naturally? Related keywords present?
+3. Heading structure — Proper H2/H3 hierarchy? Descriptive headings?
+4. Keyword usage — Primary keyword appears naturally 3-5 times?
 5. Readability — Short paragraphs? Mix of sentence lengths? Scannable?
-6. Internal linking potential — Are there sections that reference each other (intra-links)?
-7. Content length — Is it substantial enough (1200+ words)?
-8. Engagement hooks — Does it have questions, callouts, or interactive elements?
+6. Content length — Substantial enough (800+ words)?
 
-Score each criterion 1-10, then average for overall score (scale to 100).
+Score each criterion 1-10, average them, and scale to 100.
+
+IMPORTANT:
+- Do NOT penalize for lack of internal links — this is a standalone blog post.
+- Do NOT penalize for missing images or multimedia — those are handled separately.
+- Score ONLY what the content itself can control.
+- Be fair and varied — not every blog is the same quality. Scores should range from 60-95.
+- Only provide feedback if score < 65.
 
 Respond in JSON format:
 {
-    "seo_score": 75,
+    "seo_score": 78,
     "meta_description": "A compelling 150-160 character description for Google",
     "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
     "scores": {
         "title": 8,
         "meta_description": 7,
         "heading_structure": 8,
-        "keyword_density": 6,
+        "keyword_usage": 7,
         "readability": 8,
-        "intra_linking": 5,
-        "content_length": 7,
-        "engagement": 7
+        "content_length": 7
     },
     "improvements": ["specific improvement 1", "specific improvement 2"],
-    "feedback": "If score < 70, detailed feedback for the humanizer about what to fix"
+    "feedback": "Only if score < 65: what the humanizer should fix"
 }"""
 
     async def execute(self, input_data: dict) -> AgentResult:
@@ -67,5 +70,5 @@ Evaluate the SEO quality of this blog. Be strict but fair. Score it and provide 
         return AgentResult(
             success=True,
             output=output,
-            feedback=feedback if seo_score < 70 else None,
+            feedback=feedback if seo_score < 65 else None,
         )
