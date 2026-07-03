@@ -45,11 +45,14 @@ Respond in JSON format:
         for section in sections:
             content_text += f"## {section.get('heading', '')}\n{section.get('content', '')}\n\n"
 
+        search_query = f"{topic} facts statistics data"
+        sources_used = []
         try:
-            search_results = await tavily_client.search(f"{topic} facts statistics data", max_results=3)
+            search_results = await tavily_client.search(search_query, max_results=3)
             verification_context = "\n".join(
                 f"- {r.get('title', '')}: {r.get('content', '')[:200]}" for r in search_results
             )
+            sources_used = [{"url": r.get("url", ""), "title": r.get("title", "")} for r in search_results]
         except Exception:
             verification_context = "No web verification available. Use your knowledge to fact-check."
 
@@ -61,10 +64,12 @@ Blog content to fact-check:
 Reference information from web search:
 {verification_context}
 
-Carefully verify all factual claims. Be strict — UPSC aspirants depend on accuracy. Return JSON only."""
+Carefully verify all factual claims. Only flag claims that are DEMONSTRABLY WRONG with a concrete correction. Return JSON only."""
 
         response = await groq_client.generate(self.SYSTEM_PROMPT, user_prompt)
         output = json.loads(response)
+        output["sources_used"] = sources_used
+        output["search_query"] = search_query
 
         feedback = output.get("feedback", "")
         verified = output.get("verified", True)

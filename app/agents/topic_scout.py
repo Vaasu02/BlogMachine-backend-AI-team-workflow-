@@ -31,9 +31,10 @@ Respond in JSON format:
 
     async def execute(self, input_data: dict) -> AgentResult:
         topic = input_data.get("topic", "")
+        search_query = f"UPSC {topic} current affairs 2024 2025"
 
         try:
-            search_results = await tavily_client.search(f"UPSC {topic} current affairs 2024 2025", max_results=5)
+            search_results = await tavily_client.search(search_query, max_results=5)
             search_context = "\n".join(
                 f"- {r.get('title', '')}: {r.get('content', '')[:200]}" for r in search_results
             )
@@ -52,5 +53,6 @@ Analyze this topic and provide a focused, UPSC-relevant angle. Return JSON only.
         response = await groq_client.generate(self.SYSTEM_PROMPT, user_prompt)
         output = json.loads(response)
         output["sources"] = sources
+        output["search_queries"] = [search_query]
 
         return AgentResult(success=True, output=output)

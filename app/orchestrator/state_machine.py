@@ -108,7 +108,7 @@ def get_agent_instance(state: BlogState):
     return None
 
 
-async def emit_event(blog_id: str, agent_name: str, state: BlogState, status: str, message: str, feedback_loop: dict = None):
+async def emit_event(blog_id: str, agent_name: str, state: BlogState, status: str, message: str, feedback_loop: dict = None, details: dict = None):
     event = {
         "blog_id": blog_id,
         "current_agent": agent_name,
@@ -118,6 +118,7 @@ async def emit_event(blog_id: str, agent_name: str, state: BlogState, status: st
         "progress": PROGRESS_MAP.get(state, 0),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "feedback_loop": feedback_loop,
+        "details": details,
     }
     await event_bus.publish(blog_id, event)
 
@@ -154,7 +155,7 @@ def get_next_state(current: BlogState, result: AgentResult) -> BlogState:
 
     elif current == BlogState.SEO_CHECK:
         seo_score = result.output.get("seo_score", 0)
-        if seo_score < 70:
+        if seo_score < 65:
             return BlogState.HUMANIZING
         return BlogState.MCQ_GENERATION
 
@@ -163,6 +164,73 @@ def get_next_state(current: BlogState, result: AgentResult) -> BlogState:
             return state
 
     return BlogState.FAILED
+
+
+def build_details(state: BlogState, output: dict, context: PipelineContext) -> dict:
+    """Extract rich details from agent output for frontend visibility."""
+    if state == BlogState.TOPIC_RESEARCH:
+        return {
+            "type": "research",
+            "topic": output.get("topic", context.topic),
+            "search_queries": output.get("search_queries", []),
+            "sources": output.get("sources", []),
+            "key_points": output.get("key_points", [])[:5],
+        }
+    elif state == BlogState.NARRATIVE_PLANNING:
+        sections = output.get("sections", [])
+        return {
+            "type": "narrative",
+            "section_count": len(sections),
+            "sections": [s.get("heading", s) if isinstance(s, dict) else s for s in sections],
+            "gs_paper": output.get("gs_paper", ""),
+            "subject": output.get("subject", ""),
+        }
+    elif state == BlogState.WRITING:
+        sections = output.get("sections", [])
+        word_count = output.get("word_count", 0)
+        return {
+            "type": "writing",
+            "section_count": len(sections),
+            "word_count": word_count,
+            "sections_written": [s.get("heading", "") for s in sections if isinstance(s, dict)],
+        }
+    elif state == BlogState.FACT_CHECKING:
+        return {
+            "type": "fact_check",
+            "verified": output.get("verified", True),
+            "claims_checked": output.get("claims_checked", 0),
+            "issues": output.get("issues", []),
+            "sources_used": output.get("sources_used", []),
+        }
+    elif state == BlogState.HUMANIZING:
+        return {
+            "type": "humanize",
+            "title": output.get("title", ""),
+            "changes_made": output.get("changes_made", []),
+        }
+    elif state == BlogState.SEO_CHECK:
+        return {
+            "type": "seo",
+            "seo_score": output.get("seo_score", 0),
+            "scores": output.get("scores", {}),
+            "improvements": output.get("improvements", []),
+            "meta_description": output.get("meta_description", ""),
+            "tags": output.get("tags", []),
+        }
+    elif state == BlogState.MCQ_GENERATION:
+        questions = output.get("questions", [])
+        return {
+            "type": "mcq",
+            "question_count": len(questions),
+        }
+    elif state == BlogState.IMAGE_SELECTION:
+        images = output.get("images", [])
+        return {
+            "type": "images",
+            "image_count": len(images),
+            "images": [{"alt": img.get("alt_text", ""), "credit": img.get("credit", "")} for img in images[:4]],
+        }
+    return {}
 
 
 PIPELINE_ORDER = [
@@ -221,7 +289,9 @@ async def run_blog_pipeline(blog_id: str, topic: str):
                 context.store_output(current_state, result.output)
                 log_agent_activity(db, blog_id, agent_name, current_state.value, input_data, result.output, status="completed")
                 print(f"[PIPELINE] {agent_name} COMPLETED")
-                await emit_event(blog_id, agent_name, current_state, "completed", f"{agent_name} finished successfully.")
+
+                details = build_details(current_state, result.output, context)
+                await emit_event(blog_id, agent_name, current_state, "completed", f"{agent_name} finished successfully.", details=details)
             else:
                 print(f"[PIPELINE] {agent_name} REJECTED: {result.feedback}")
                 log_agent_activity(db, blog_id, agent_name, current_state.value, input_data, result.output, feedback=result.feedback, status="rejected")
