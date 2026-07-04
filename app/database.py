@@ -7,7 +7,9 @@ db_url = settings.DATABASE_URL
 
 # Railway provides postgres:// but SQLAlchemy needs postgresql://
 if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+    db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
+elif db_url.startswith("postgresql://") and "+pg8000" not in db_url:
+    db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
 
 # SQLite needs check_same_thread, PostgreSQL does not
 if db_url.startswith("sqlite"):
