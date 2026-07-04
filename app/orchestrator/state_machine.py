@@ -262,6 +262,14 @@ async def run_blog_pipeline(blog_id: str, topic: str):
         current_state = BlogState.TOPIC_RESEARCH
 
         while current_state not in (BlogState.COMPLETED, BlogState.FAILED):
+            # Check if blog was cancelled between steps
+            db.expire_all()
+            blog_check = db.query(Blog).filter(Blog.id == blog_id).first()
+            if blog_check and blog_check.status == "failed":
+                print(f"[PIPELINE] Blog {blog_id} was cancelled. Stopping.")
+                await emit_event(blog_id, "system", BlogState.FAILED, "failed", "Blog generation was cancelled.")
+                return
+
             agent_name = AGENT_MAP.get(current_state, "unknown")
             agent = get_agent_instance(current_state)
 

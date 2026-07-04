@@ -13,7 +13,7 @@ from app.routes.stream import router as stream_router
 def cleanup_stale_blogs():
     db = SessionLocal()
     try:
-        stale = db.query(Blog).filter(Blog.status.in_(["pending", "generating", "running"])).all()
+        stale = db.query(Blog).filter(Blog.status.in_(["pending", "generating", "running", "queued"])).all()
         for blog in stale:
             blog.status = "failed"
         db.commit()
