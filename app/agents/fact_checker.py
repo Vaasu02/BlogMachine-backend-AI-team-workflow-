@@ -1,7 +1,7 @@
 import json
 
-from app.agents.base import BaseAgent, AgentResult
-from app.services.groq_client import groq_client
+from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.services.gemini_client import gemini_client
 from app.services.tavily_client import tavily_client
 
 
@@ -13,19 +13,23 @@ class FactCheckerAgent(BaseAgent):
 
 Your job is to verify factual claims made in the blog draft. UPSC aspirants rely on this content, so accuracy matters.
 
-Rules:
-1. Only flag claims that are DEMONSTRABLY WRONG — you must state what the correct fact is.
-2. Do NOT flag claims just because you cannot verify them. Unverifiable is NOT the same as wrong.
-3. Do NOT give generic feedback like "verify sources" or "ensure accuracy" — that is useless.
-4. If you cannot find a specific factual error with a concrete correction, mark verified as TRUE.
-5. Vague concerns ("dates need checking", "statistics should be verified") do NOT count as issues.
+PROCESS:
+1. Read through the content and IDENTIFY every factual claim (dates, names, statistics, events, legal provisions).
+2. Cross-reference against the provided web search results and your knowledge.
+3. Count how many claims you checked (must be at least 8).
+4. Only mark verified=false if you find a SPECIFIC error with a CONCRETE correction.
 
-Only mark verified=false if you have at least ONE specific claim with a concrete correction.
+Rules:
+1. You MUST check at least 8-15 claims from the content. Count them.
+2. Only flag claims that are DEMONSTRABLY WRONG — you must state what the correct fact is.
+3. Do NOT flag claims just because you cannot verify them. Unverifiable is NOT the same as wrong.
+4. Do NOT give generic feedback like "verify sources" or "ensure accuracy."
+5. If you cannot find a specific factual error with a concrete correction, mark verified as TRUE.
 
 Respond in JSON format:
 {
     "verified": true/false,
-    "claims_checked": 10,
+    "claims_checked": 12,
     "issues": [
         {
             "claim": "The exact incorrect claim",
@@ -66,8 +70,8 @@ Reference information from web search:
 
 Carefully verify all factual claims. Only flag claims that are DEMONSTRABLY WRONG with a concrete correction. Return JSON only."""
 
-        response = await groq_client.generate(self.SYSTEM_PROMPT, user_prompt)
-        output = json.loads(response)
+        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
+        output = parse_json_response(response)
         output["sources_used"] = sources_used
         output["search_query"] = search_query
 

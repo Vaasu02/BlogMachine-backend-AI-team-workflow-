@@ -11,7 +11,7 @@ class Settings:
     PEXELS_API_KEY: str = os.getenv("PEXELS_API_KEY", "")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./blog_machine.db")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
     GROQ_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     MAX_FEEDBACK_RETRIES: int = 3
 

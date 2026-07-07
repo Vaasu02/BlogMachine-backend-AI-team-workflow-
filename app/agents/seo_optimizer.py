@@ -1,7 +1,7 @@
 import json
 
-from app.agents.base import BaseAgent, AgentResult
-from app.services.groq_client import groq_client
+from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.services.gemini_client import gemini_client
 
 
 class SEOOptimizerAgent(BaseAgent):
@@ -61,8 +61,8 @@ Blog content:
 
 Evaluate the SEO quality of this blog. Be strict but fair. Score it and provide actionable feedback. Return JSON only."""
 
-        response = await groq_client.generate(self.SYSTEM_PROMPT, user_prompt)
-        output = json.loads(response)
+        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
+        output = parse_json_response(response)
 
         seo_score = output.get("seo_score", 0)
         feedback = output.get("feedback", "")

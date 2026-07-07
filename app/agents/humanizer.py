@@ -1,7 +1,7 @@
 import json
 
-from app.agents.base import BaseAgent, AgentResult
-from app.services.groq_client import groq_client
+from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.services.gemini_client import gemini_client
 
 
 class HumanizerAgent(BaseAgent):
@@ -65,7 +65,7 @@ Original content:
 
 Humanize this content following all the rules. Make it read like a passionate UPSC mentor wrote it, not an AI. Return JSON only."""
 
-        response = await groq_client.generate(self.SYSTEM_PROMPT, user_prompt)
-        output = json.loads(response)
+        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
+        output = parse_json_response(response)
 
         return AgentResult(success=True, output=output)

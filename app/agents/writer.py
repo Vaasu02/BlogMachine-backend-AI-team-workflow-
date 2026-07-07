@@ -1,7 +1,7 @@
 import json
 
-from app.agents.base import BaseAgent, AgentResult
-from app.services.groq_client import groq_client
+from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.services.gemini_client import gemini_client
 
 
 class ContentWriterAgent(BaseAgent):
@@ -64,8 +64,8 @@ Keywords: {', '.join(keywords)}
 
 Generate a blog title. Return JSON only."""
 
-        title_response = await groq_client.generate(self.TITLE_PROMPT, title_prompt)
-        title_data = json.loads(title_response)
+        title_response = await gemini_client.generate(self.TITLE_PROMPT, title_prompt)
+        title_data = parse_json_response(title_response)
         title = title_data.get("title", topic)
 
         sections = []
@@ -85,6 +85,12 @@ The fact checker has flagged issues with the previous draft. Address these:
 
 Fix the flagged issues while keeping the content accurate and well-written."""
 
+            # Only send last section's content to keep prompt small
+            if previous_content:
+                prev_summary = f"(Previous sections: {', '.join(s.get('heading', '') for s in sections)})\n\nLast section ending:\n...{sections[-1].get('content', '')[-200:]}"
+            else:
+                prev_summary = "(This is the first section)"
+
             user_prompt = f"""Topic: {topic}
 Blog title: {title}
 GS Paper: {narrative.get('gs_paper', '')}
@@ -94,17 +100,17 @@ Current section ({i+1} of {len(outline)}):
 - Purpose: {purpose}
 - Key points to cover: {', '.join(key_points)}
 
-Research context: {research_context}
+Research context: {research_context[:500]}
 Keywords to naturally include: {', '.join(keywords)}
 
-Previous sections written so far:
-{previous_content if previous_content else "(This is the first section)"}
+Previous sections:
+{prev_summary}
 {feedback_text}
 
 Write this section (150-300 words). Connect smoothly to the previous section. Return JSON only."""
 
-            response = await groq_client.generate(self.SYSTEM_PROMPT, user_prompt)
-            section_data = json.loads(response)
+            response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
+            section_data = parse_json_response(response)
 
             sections.append({
                 "heading": section_data.get("heading", heading),
