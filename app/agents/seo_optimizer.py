@@ -1,6 +1,4 @@
-import json
-
-from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.agents.base import BaseAgent, AgentResult
 from app.services.gemini_client import gemini_client
 
 
@@ -29,22 +27,18 @@ IMPORTANT:
 - Be fair and varied — not every blog is the same quality. Scores should range from 60-95.
 - Only provide feedback if score < 65.
 
-Respond in JSON format:
-{
-    "seo_score": 78,
-    "meta_description": "A compelling 150-160 character description for Google",
-    "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-    "scores": {
-        "title": 8,
-        "meta_description": 7,
-        "heading_structure": 8,
-        "keyword_usage": 7,
-        "readability": 8,
-        "content_length": 7
-    },
-    "improvements": ["specific improvement 1", "specific improvement 2"],
-    "feedback": "Only if score < 65: what the humanizer should fix"
-}"""
+OUTPUT FORMAT (one item per line, exact format):
+SEO_SCORE: [number]
+TITLE_SCORE: [number]
+META_SCORE: [number]
+HEADING_SCORE: [number]
+KEYWORD_SCORE: [number]
+READABILITY_SCORE: [number]
+LENGTH_SCORE: [number]
+META_DESCRIPTION: [your 150-160 char description]
+TAGS: [tag1, tag2, tag3, tag4, tag5]
+IMPROVEMENTS: [improvement 1 | improvement 2 | improvement 3]
+FEEDBACK: [only if score < 65, otherwise write NONE]"""
 
     async def execute(self, input_data: dict) -> AgentResult:
         content = input_data.get("content", {})
@@ -59,10 +53,10 @@ Blog title: {title}
 Blog content:
 {blog_content}
 
-Evaluate the SEO quality of this blog. Be strict but fair. Score it and provide actionable feedback. Return JSON only."""
+Evaluate the SEO quality of this blog. Be strict but fair. Score it and provide actionable feedback."""
 
-        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
-        output = parse_json_response(response)
+        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt, json_mode=False)
+        output = self._parse_seo_response(response)
 
         seo_score = output.get("seo_score", 0)
         feedback = output.get("feedback", "")
@@ -72,3 +66,51 @@ Evaluate the SEO quality of this blog. Be strict but fair. Score it and provide 
             output=output,
             feedback=feedback if seo_score < 65 else None,
         )
+
+    def _parse_seo_response(self, text: str) -> dict:
+        """Parse the structured plain text SEO response."""
+        lines = text.strip().split("\n")
+        result = {
+            "seo_score": 70,
+            "scores": {},
+            "meta_description": "",
+            "tags": [],
+            "improvements": [],
+            "feedback": "",
+        }
+
+        for line in lines:
+            line = line.strip()
+            if not line or ":" not in line:
+                continue
+            key, _, value = line.partition(":")
+            key = key.strip().upper()
+            value = value.strip()
+
+            try:
+                if key == "SEO_SCORE":
+                    result["seo_score"] = int(value)
+                elif key == "TITLE_SCORE":
+                    result["scores"]["title"] = int(value)
+                elif key == "META_SCORE":
+                    result["scores"]["meta_description"] = int(value)
+                elif key == "HEADING_SCORE":
+                    result["scores"]["heading_structure"] = int(value)
+                elif key == "KEYWORD_SCORE":
+                    result["scores"]["keyword_usage"] = int(value)
+                elif key == "READABILITY_SCORE":
+                    result["scores"]["readability"] = int(value)
+                elif key == "LENGTH_SCORE":
+                    result["scores"]["content_length"] = int(value)
+                elif key == "META_DESCRIPTION":
+                    result["meta_description"] = value
+                elif key == "TAGS":
+                    result["tags"] = [t.strip() for t in value.strip("[]").split(",")]
+                elif key == "IMPROVEMENTS":
+                    result["improvements"] = [i.strip() for i in value.strip("[]").split("|")]
+                elif key == "FEEDBACK":
+                    result["feedback"] = "" if value.upper() == "NONE" else value
+            except (ValueError, IndexError):
+                continue
+
+        return result

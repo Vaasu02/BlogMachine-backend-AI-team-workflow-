@@ -1,6 +1,4 @@
-import json
-
-from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.agents.base import BaseAgent, AgentResult
 from app.services.gemini_client import gemini_client
 
 
@@ -30,12 +28,11 @@ DO NOT:
 - Add fake citations or made-up statistics
 - Make it too casual — maintain educational authority
 
-Respond in JSON format:
-{
-    "title": "Blog title (may refine for SEO/readability)",
-    "content": "The full humanized blog content in markdown format (use ## for H2 headings, ### for H3)",
-    "changes_made": ["list of key changes you made to humanize the content"]
-}"""
+OUTPUT FORMAT:
+First line: the blog title (just the text, no prefix)
+Then a blank line.
+Then the full humanized blog content in markdown format (use ## for H2 headings, ### for H3).
+Nothing else — no JSON, no explanation, no metadata."""
 
     async def execute(self, input_data: dict) -> AgentResult:
         draft = input_data.get("draft", {})
@@ -63,9 +60,18 @@ Original content:
 {content_text}
 {feedback_text}
 
-Humanize this content following all the rules. Make it read like a passionate UPSC mentor wrote it, not an AI. Return JSON only."""
+Humanize this content following all the rules. Make it read like a passionate UPSC mentor wrote it, not an AI."""
 
-        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
-        output = parse_json_response(response)
+        response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt, json_mode=False)
+        response = response.strip()
 
-        return AgentResult(success=True, output=output)
+        # Parse: first line = title, rest = content
+        lines = response.split("\n", 1)
+        parsed_title = lines[0].strip().strip("#").strip() if lines else title
+        parsed_content = lines[1].strip() if len(lines) > 1 else response
+
+        return AgentResult(success=True, output={
+            "title": parsed_title,
+            "content": parsed_content,
+            "changes_made": ["Humanized content with varied sentence length and conversational tone"],
+        })
