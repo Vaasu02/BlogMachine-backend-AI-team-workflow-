@@ -1,6 +1,6 @@
 import json
 
-from app.agents.base import BaseAgent, AgentResult, parse_json_response
+from app.agents.base import BaseAgent, AgentResult
 from app.services.gemini_client import gemini_client
 
 
@@ -34,10 +34,7 @@ Rules:
 - Engaging but not clickbait
 - Suitable for UPSC audience
 
-Respond in JSON format:
-{
-    "title": "The blog title"
-}"""
+Respond with ONLY the title text. Nothing else — no quotes, no JSON, no explanation."""
 
     async def execute(self, input_data: dict) -> AgentResult:
         topic = input_data.get("topic", "")
@@ -57,11 +54,10 @@ Narrative angle: {narrative.get('narrative_angle', '')}
 GS Paper: {narrative.get('gs_paper', '')}
 Keywords: {', '.join(keywords)}
 
-Generate a blog title. Return JSON only."""
+Generate a blog title."""
 
-        title_response = await gemini_client.generate(self.TITLE_PROMPT, title_prompt)
-        title_data = parse_json_response(title_response)
-        title = title_data.get("title", topic)
+        title_response = await gemini_client.generate(self.TITLE_PROMPT, title_prompt, json_mode=False)
+        title = title_response.strip().strip('"').strip()
 
         sections = []
 
