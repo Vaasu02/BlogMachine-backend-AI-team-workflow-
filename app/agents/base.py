@@ -28,45 +28,33 @@ def parse_json_response(text: str) -> dict:
             return json.loads(match.group(1).strip())
         except json.JSONDecodeError:
             pass
-    # Try finding first { to last }
+    # Try progressively from first { to each } from right to left
     start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        candidate = text[start:end + 1]
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError:
-            # Try cleaning stray characters: remove lines that are just quotes or whitespace
-            lines = candidate.split("\n")
-            cleaned_lines = [l for l in lines if l.strip() not in ('"', "'", "")]
-            cleaned = "\n".join(cleaned_lines)
+    if start != -1:
+        # Find all } positions
+        end_positions = [i for i, c in enumerate(text) if c == "}"]
+        # Try from rightmost } backwards until one parses
+        for end in reversed(end_positions):
+            if end <= start:
+                break
+            candidate = text[start:end + 1]
             try:
-                return json.loads(cleaned)
+                return json.loads(candidate)
             except json.JSONDecodeError:
-                pass
-            # Try fixing truncated JSON by closing open strings and braces
-            fixed = _try_fix_truncated_json(candidate)
-            if fixed:
-                return fixed
-            # Try on cleaned version too
-            fixed = _try_fix_truncated_json(cleaned)
-            if fixed:
-                return fixed
-    elif start != -1:
-        # Found { but no closing } — response was fully truncated
-        candidate = text[start:]
+                continue
+        # None parsed cleanly — try fixing truncated JSON
+        # Use the largest candidate (first { to last })
+        if end_positions and end_positions[-1] > start:
+            candidate = text[start:end_positions[-1] + 1]
+        else:
+            candidate = text[start:]
         fixed = _try_fix_truncated_json(candidate)
         if fixed:
             return fixed
-    # Last resort: try to find any JSON array
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        try:
-            arr = json.loads(text[start:end + 1])
-            return {"items": arr}
-        except json.JSONDecodeError:
-            pass
+        # Try with just text from { to end (fully truncated, no closing })
+        fixed = _try_fix_truncated_json(text[start:])
+        if fixed:
+            return fixed
     raise ValueError(f"Could not parse JSON from response: {text[:200]}")
 
 
