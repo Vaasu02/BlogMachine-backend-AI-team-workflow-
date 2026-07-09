@@ -8,7 +8,7 @@ class ContentWriterAgent(BaseAgent):
     name = "content_writer"
     description = "Writes blog content section by section"
 
-    SYSTEM_PROMPT = """You are a skilled Content Writer for a UPSC educational blog platform.
+    SECTION_PROMPT = """You are a skilled Content Writer for a UPSC educational blog platform.
 
 Your job is to write ONE section of a blog post. You will be given the section heading, its purpose, key points to cover, and context from previous sections.
 
@@ -22,12 +22,7 @@ Writing guidelines:
 7. NO political bias or discrimination
 8. Make content relatable to exam preparation without being preachy
 
-Respond in JSON format:
-{
-    "heading": "The section heading",
-    "content": "The written content for this section (150-300 words)",
-    "word_count": 200
-}"""
+IMPORTANT: Write ONLY the section content as plain text. No JSON, no markdown headings, no wrapping. Just the paragraphs for this section."""
 
     TITLE_PROMPT = """You are a blog title specialist for a UPSC educational platform.
 
@@ -69,7 +64,6 @@ Generate a blog title. Return JSON only."""
         title = title_data.get("title", topic)
 
         sections = []
-        previous_content = ""
 
         for i, section_info in enumerate(outline):
             heading = section_info.get("heading", f"Section {i+1}")
@@ -85,8 +79,7 @@ The fact checker has flagged issues with the previous draft. Address these:
 
 Fix the flagged issues while keeping the content accurate and well-written."""
 
-            # Only send last section's content to keep prompt small
-            if previous_content:
+            if sections:
                 prev_summary = f"(Previous sections: {', '.join(s.get('heading', '') for s in sections)})\n\nLast section ending:\n...{sections[-1].get('content', '')[-200:]}"
             else:
                 prev_summary = "(This is the first section)"
@@ -107,18 +100,17 @@ Previous sections:
 {prev_summary}
 {feedback_text}
 
-Write this section (150-300 words). Connect smoothly to the previous section. Return JSON only."""
+Write this section (200-400 words). Connect smoothly to the previous section. Write ONLY the content paragraphs, nothing else."""
 
-            response = await gemini_client.generate(self.SYSTEM_PROMPT, user_prompt)
-            section_data = parse_json_response(response)
+            response = await gemini_client.generate(self.SECTION_PROMPT, user_prompt, json_mode=False)
+            content = response.strip()
+            word_count = len(content.split())
 
             sections.append({
-                "heading": section_data.get("heading", heading),
-                "content": section_data.get("content", ""),
-                "word_count": section_data.get("word_count", 0),
+                "heading": heading,
+                "content": content,
+                "word_count": word_count,
             })
-
-            previous_content += f"\n## {heading}\n{section_data.get('content', '')}\n"
 
         total_words = sum(s.get("word_count", 0) for s in sections)
 
